@@ -5,6 +5,7 @@ namespace Multifinger\UtilitiesBundle\Service;
 use Multifinger\AppSettingsBundle\Service\AppSettingsService;
 
 /**
+ * TODO похорошему надо унаследоваться от \Swift_Mailer
  * @author Maksim Borisov <maksim.i.borisov@gmail.com> 25.08.17 6:19
  * Class ClusterMailer
  * @package Multifinger\UtilitiesBundle\Service
@@ -40,12 +41,12 @@ class ClusterMailer
         $this->nodes = $nodes;
     }
 
-    public function setWhitelist(array $list)
+    public function setWhitelist(array $list = null)
     {
         $this->whitelist = $list;
     }
 
-    public function setBlacklist(array $list)
+    public function setBlacklist(array $list = null)
     {
         $this->blacklist = $list;
     }
@@ -68,10 +69,16 @@ class ClusterMailer
 
         // Stop sending if whitelist defined and email not in whitelist
         if (is_array($this->whitelist)) {
-            foreach ($message->getTo() as $mail => $name) {
-                if (!empty($mail) && empty($this->whitelist[$mail])) {
-                    return;
+            $to = $message->getTo();
+            foreach ($to as $mail => $name) {
+                if (!in_array($mail, $this->whitelist)) {
+                    unset($to[$mail]);
                 }
+            }
+            $message->setTo($to);
+            // None recipients in whitelist
+            if (!sizeof($message->getTo())) {
+                return;
             }
         }
 
@@ -96,11 +103,12 @@ class ClusterMailer
             return;
         }
 
-        // TODO - подмена домена отправителя на домен текущего кластера для from
+        // подмена домена отправителя на домен текущего кластера для from
+        $from = $this->fixFrom($message->getFrom(), $node);
 
         $data['getContentType']     = $message->getContentType();
         $data['getBody']            = $message->getBody();
-        $data['getFrom']            = $message->getFrom();
+        $data['getFrom']            = $from;
         $data['getReplyTo']         = $message->getReplyTo();
         $data['getReturnPath']      = $message->getReturnPath();
         $data['getTo']              = $message->getTo();
@@ -159,6 +167,25 @@ class ClusterMailer
         }
 
         return $this->activeNodes[$this->current];
+    }
+
+    /**
+     * Заменяет домен адресов отправителя $from на домен ноды $node
+     * @author Maksim Borisov <maksim.i.borisov@gmail.com> 25.08.17 10:27
+     * @param array $from
+     * @param $node
+     * @return array
+     */
+    private function fixFrom(array $from, $node)
+    {
+        $domain = parse_url($node, PHP_URL_HOST);
+
+        $result = [];
+        foreach ($from as $email => $name) {
+            $result[explode('@', $email)[0].'@'.$domain] = $name;
+        }
+
+        return $result;
     }
 
 }
