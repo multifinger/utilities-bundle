@@ -17,6 +17,8 @@ class ClusterMailer
     private const BLOCK_TIMEOUT_SETTING  = 'multi_mail_block_timeout';
     private const DEFAULT_BLOCK_TIMEOUT  = 300;
 
+    private const MAX_ATTEMPTS = 10;
+
     private $whitelist;
 
     private $blacklist;
@@ -32,6 +34,8 @@ class ClusterMailer
 
     /** @var AppSettingsService */
     private $settings;
+
+    private $attempts = 0;
 
     //------------------------------------------------------------------------------------------------------------------
 
@@ -82,6 +86,7 @@ class ClusterMailer
             }
         }
 
+        $this->attempts = 0;
         $this->sendRecursive($message);
     }
 
@@ -94,6 +99,11 @@ class ClusterMailer
      */
     private function sendRecursive(\Swift_Message $message)
     {
+        // Max attempts reached
+        if (++$this->attempts > self::MAX_ATTEMPTS) {
+            return;
+        }
+
         $data = array();
 
         $node = $this->getNode();
