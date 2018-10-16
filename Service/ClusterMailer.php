@@ -61,12 +61,23 @@ class ClusterMailer
      * @author Maksim Borisov <maksim.i.borisov@gmail.com> 25.08.17 8:19
      * @param \Swift_Message $message
      * @param null $failedRecipients
+     * @param string[] $vars
      */
-    public function send(\Swift_Message $message, &$failedRecipients = null)
+    public function send(\Swift_Message $message, &$failedRecipients = null, array $vars = [])
     {
-        // Stop sending if email in blacklist
+        $failedRecipients = [];
+
+        // Skip sending if email in blacklist
         if (is_array($this->blacklist) && sizeof($this->blackList)) {
-            if (preg_match('#(:?'.implode('|', $this->blacklist).')#mui', key($message->getTo()))) {
+            $to = $message->getTo();
+            foreach ($to as $mail => $name) {
+                if (preg_match('#(:?'.implode('|', $this->blacklist).')#mui', $mail)) {
+                    unset($to[$mail]);
+                }
+            }
+            $message->setTo($to);
+            // All recipients in blacklist
+            if (!sizeof($message->getTo())) {
                 return;
             }
         }
@@ -87,7 +98,7 @@ class ClusterMailer
         }
 
         $this->attempts = 0;
-        $this->sendRecursive($message);
+        $this->sendRecursive($message, $failedRecipients, $vars);
     }
 
     /**
@@ -96,8 +107,9 @@ class ClusterMailer
      * Попытки заканчиваются, когда заканчиваются доступные незаблокированные ноды
      * @author Maksim Borisov <maksim.i.borisov@gmail.com> 25.08.17 6:25
      * @param \Swift_Message $message
+     * @param string[] $vars
      */
-    private function sendRecursive(\Swift_Message $message)
+    private function sendRecursive(\Swift_Message $message, &$failedRecipients, array $vars = [])
     {
         // Max attempts reached
         if (++$this->attempts > self::MAX_ATTEMPTS) {
@@ -126,6 +138,9 @@ class ClusterMailer
         $data['getBcc']             = $message->getBcc();
         $data['getSender']          = $message->getSender();
         $data['getSubject']         = $message->getSubject();
+        if (sizeof($vars)) {
+            $data['vars'] = $vars;
+        }
 
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $node);
@@ -133,8 +148,7 @@ class ClusterMailer
         curl_setopt($ch, CURLOPT_POSTFIELDS, 'data='.urlencode(json_encode($data)));
         curl_setopt($ch, CURLOPT_HEADER, 0);
         curl_setopt($ch, CURLOPT_POST, 1);
-        curl_exec($ch);
-
+        $response = curl_exec($ch);
         $info = curl_getinfo($ch);
         curl_close($ch);
 
@@ -143,9 +157,13 @@ class ClusterMailer
             $this->settings->set(self::BLOCKED_SETTING_PREFIX.$node, time());
             // TODO email error about node lock
 
-
             // отправка повторно через другую ноду
-            $this->sendRecursive($message);
+            $this->sendRecursive($message, $failedRecipients, $vars);
+        } elseif ($response) {
+            $response = json_decode($response, true);
+            if ($response && isset($response['failed_recipients']) && is_array($response['failed_recipients'])) {
+                $failedRecipients = $response['failed_recipients'];
+            }
         }
     }
 
