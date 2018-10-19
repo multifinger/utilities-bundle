@@ -35,6 +35,9 @@ try {
         foreach ($vars as $email => $rp) {
             $message->setTo($email);
             $message->setBody(strtr($body, $rp));
+            if (isset($rp['%List-Unsubscribe%'])) {
+                $message->getHeaders()->addTextHeader('List-Unsubscribe', "<{$rp['%List-Unsubscribe%']}>");
+            }
             try {
                 $mailer->send($message);
             } catch (Exception $e) {

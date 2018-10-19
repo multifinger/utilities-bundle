@@ -125,12 +125,9 @@ class ClusterMailer
             return;
         }
 
-        // подмена домена отправителя на домен текущего кластера для from
-        $from = $this->fixFrom($message->getFrom(), $node);
-
         $data['getContentType']     = $message->getContentType();
         $data['getBody']            = $message->getBody();
-        $data['getFrom']            = $from;
+        $data['getFrom']            = $message->getFrom();;
         $data['getReplyTo']         = $message->getReplyTo();
         $data['getReturnPath']      = $message->getReturnPath();
         $data['getTo']              = $message->getTo();
