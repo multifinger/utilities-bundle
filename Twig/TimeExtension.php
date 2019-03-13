@@ -16,17 +16,13 @@ class TimeExtension extends \Twig_Extension
 
     public function getFunctions()
     {
-        return [
-            new \Twig_SimpleFunction('seo_year',            [$this, 'getYear']),
-            new \Twig_SimpleFunction('seo_new_year',        [$this, 'getNewYear']),
-        ];
+        return [];
     }
 
     public function getFilters()
     {
         return [
             new \Twig_SimpleFilter('timestamp2datetime',    [$this, 'timestamp2datetime']),
-            new \Twig_SimpleFilter('seo_cheapest_tours',    [$this, 'getCheapestTours']),
         ];
     }
 
